@@ -1,0 +1,12 @@
+[project]
+name = "analysis"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">3.11"
+dependencies = [
+    "ipykernel>=6.29.5",
+]
+authors = [
+    {name = "Andrew Scherer", email = "andrew@sourcedepth.com"}
+]
+license = "MIT"
