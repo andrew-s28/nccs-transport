@@ -10,15 +10,15 @@ import os
 import paramiko
 from dotenv import load_dotenv
 
-# urllib.request.urlretrieve("ftp://ftp-access.aviso.altimetry.fr/auxiliary/mdt", "D:/nccs-transport/mdt/mdt.nc")
-
 load_dotenv()
 username = os.getenv("AVISO_USERNAME")
 password = os.getenv("AVISO_PASSWORD")
 if username is None or password is None:
     raise ValueError("Please set AVISO_USERNAME and AVISO_PASSWORD in your .env file.")
 
-host = "ftp-access.aviso.altimetry.fr"  # hard-coded
+# Connect to the SFTP server and download the MDT file
+# Implementation based on example from https://stackoverflow.com/questions/432385/sftp-in-python-platform-independent
+host = "ftp-access.aviso.altimetry.fr"
 port = 2221
 transport = paramiko.Transport((host, port))
 transport.connect(username=username, password=password)
