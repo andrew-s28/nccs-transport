@@ -16,3 +16,6 @@ dependencies = [
 ]
 authors = [{ name = "Andrew Scherer", email = "andrew@sourcedepth.com" }]
 license = "MIT"
+
+[tool.ruff]
+line-length = 120
