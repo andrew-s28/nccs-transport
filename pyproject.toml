@@ -5,17 +5,25 @@ readme = "README.md"
 requires-python = ">3.11"
 dependencies = [
     "cartopy>=0.24.1",
+    "cmocean>=4.0.3",
     "copernicusmarine>=2.1.3",
+    "imageio-ffmpeg>=0.6.0",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.3",
     "numpy>=2.2.6",
+    "pandas>=2.3.1",
     "paramiko>=3.5.1",
     "parcels>=3.1.2",
     "python-dotenv>=1.1.1",
+    "tqdm>=4.67.1",
     "xarray[accel,io,parallel]>=2025.7.0",
+    "zarr<3",
 ]
 authors = [{ name = "Andrew Scherer", email = "andrew@sourcedepth.com" }]
 license = "MIT"
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.isort]
+known-first-party = ["forward_altimeter_tracking", "overwrite_cli"]
