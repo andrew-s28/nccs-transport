@@ -80,32 +80,6 @@ def open_parcels_output(
     return ds
 
 
-def convert_to_time_index(ds: xr.Dataset, save_path: Path | None = None) -> xr.Dataset:
-    """Convert the 'obs' dimension to a time index.
-
-    Args:
-        ds (xr.Dataset): The dataset containing the OceanParcels output.
-        save_path (Path | None): Optional path to save the converted dataset as a Zarr file.
-
-    Returns:
-        ds (xr.Dataset): The dataset with the 'obs' dimension converted to a time index.
-
-    """
-    ds = ds.dropna(dim="obs", how="all")  # Drop observations that are all NaN
-    ds["time"] = ds["time"].astype("datetime64[D]").astype("datetime64[ns]")  # Round to nearest day
-    ds_list = [
-        ds.isel(trajectory=i).dropna("obs").swap_dims({"obs": "time"}).drop_duplicates("time")
-        for i in tqdm(ds["trajectory"], desc="Processing trajectory")
-    ]
-    ds = xr.concat(ds_list, dim="trajectory")
-    ds["obs"] = ds["obs"].astype(np.float32)
-    ds.chunk({"trajectory": -1, "time": 1})
-    if save_path is not None:
-        ds.to_zarr(save_path, mode="w")
-        print(f"Dataset saved to {save_path}")
-    return ds
-
-
 def make_animation(ds: xr.Dataset, save_path: Path | str, trajectory_colors: list | NDArray) -> None:
     """Create an animation of the particle trajectories for a given year of particle releases.
 
