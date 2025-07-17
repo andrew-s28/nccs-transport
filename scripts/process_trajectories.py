@@ -7,6 +7,7 @@ import xarray as xr
 from tqdm import tqdm
 
 from forward_altimeter_tracking import ParcelsConfig
+from overwrite_cli import parse_args
 
 
 def open_parcels_output(
@@ -65,7 +66,7 @@ def convert_to_time_index(ds: xr.Dataset, save_path: Path | None = None) -> xr.D
     ds = ds.dropna(dim="obs", how="all")  # Drop observations that are all NaN
     ds["time"] = ds["time"].astype("datetime64[D]").astype("datetime64[ns]")  # Round to nearest day
     ds_list = [
-        ds.isel(trajectory=i).dropna("obs").swap_dims({"obs": "time"}).drop_duplicates("time")
+        ds.sel(trajectory=i).dropna("obs").swap_dims({"obs": "time"}).drop_duplicates("time")
         for i in tqdm(ds["trajectory"], desc="Processing trajectory", leave=False)
     ]
     ds = xr.concat(ds_list, dim="trajectory")
@@ -78,7 +79,6 @@ def convert_to_time_index(ds: xr.Dataset, save_path: Path | None = None) -> xr.D
 
 if __name__ == "__main__":
     DATA_DIR = Path("D:/nccs-transport/forward_releases/")
-    file = DATA_DIR / "fwd_release_140W_45-55N_1997.zarr"
     years = np.arange(1997, 2020)
     config = ParcelsConfig(
         lon_release=-140,
@@ -89,10 +89,20 @@ if __name__ == "__main__":
         velocity_file=Path("D:/nccs-transport/combined_velocity_dataset.nc"),
         output_path=Path("D:/nccs-transport/forward_releases"),
     )  # Just using ParcelsConfig to find output paths
+    args = parse_args()
     for year in tqdm(years, desc="Processing years"):
         config.set_start_end_times(year)
         config.set_output_file(year)
-        ds = open_parcels_output(file)
         output_file_name = config.output_file.name.replace("fwd_release", "fwd_release_timeidx")
         save_path = config.output_path / output_file_name
+        if save_path.exists():
+            if args.prompt:
+                response = input(f"Time-indexed output for {year} already exists. Overwrite? (y/n): ")
+                if response.lower() != "y":
+                    print("Skipping year:", year)
+                    continue
+            elif not args.force:
+                print(f"Time-indexed output for {year} already exists. Use --force to overwrite.")
+                continue
+        ds = open_parcels_output(config.output_file)
         ds = convert_to_time_index(ds, save_path=save_path)
