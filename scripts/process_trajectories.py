@@ -1,4 +1,5 @@
-import warnings
+"""Convert Parcels output to time-indexed format."""
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -6,50 +7,9 @@ import numpy as np
 import xarray as xr
 from tqdm import tqdm
 
-from forward_altimeter_tracking import ParcelsConfig
-from overwrite_cli import parse_args
-
-
-def open_parcels_output(
-    path: str | Path,
-    load: bool = True,  # noqa: FBT001,FBT002
-) -> xr.Dataset:
-    """Open a Zarr file containing OceanParcels (https://docs.oceanparcels.org/en/latest/index.html) output.
-
-    Automatically detects if the path is a single zarr file or if it is a directory containing multiple Zarr files from MPI runs,
-    as detailed here: https://docs.oceanparcels.org/en/latest/examples/documentation_MPI.html.
-
-    Args:
-        path (str or Path): Path to the Zarr file or directory containing the Zarr files.
-        load (bool): If True, load the dataset into memory. Defaults to True.
-
-    Returns:
-        ds (xr.Dataset): The dataset containing the OceanParcels output.
-
-    Raises:
-        FileNotFoundError: If the specified path does not exist.
-
-    """
-    if isinstance(path, str):
-        path = Path(path)
-    if not path.exists():
-        msg = f"Path {path} does not exist."
-        raise FileNotFoundError(msg)
-    mpi_files = list(path.glob("proc*"))
-    if len(mpi_files) == 0:
-        ds = xr.open_zarr(path)
-    else:
-        ds = xr.concat(
-            [xr.open_zarr(f) for f in mpi_files],
-            dim="trajectory",
-            compat="no_conflicts",
-            coords="minimal",
-        )
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid value encountered")
-        if load:
-            ds.load()  # Load the dataset into memory
-    return ds
+from scripts.altimeter_tracking import ParcelsConfig
+from scripts.overwrite_cli import parse_args
+from scripts.utils import open_parcels_output
 
 
 def convert_to_time_index(ds: xr.Dataset, save_path: Path | None = None) -> xr.Dataset:
@@ -89,7 +49,7 @@ if __name__ == "__main__":
         velocity_file=Path("D:/nccs-transport/combined_velocity_dataset.nc"),
         output_path=Path("D:/nccs-transport/forward_releases"),
     )  # Just using ParcelsConfig to find output paths
-    args = parse_args()
+    args = parse_args("Converting Parcels output to time-indexed format.")
     for year in tqdm(years, desc="Processing years"):
         config.set_start_end_times(year)
         config.set_output_file(year)

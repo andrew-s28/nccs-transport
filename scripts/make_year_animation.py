@@ -1,3 +1,5 @@
+"""Create animations of particle trajectories from Parcels output."""
+
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
@@ -29,7 +31,8 @@ from matplotlib.collections import PathCollection
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from overwrite_cli import parse_args
+from scripts.overwrite_cli import parse_args
+from scripts.utils import open_parcels_output
 
 if TYPE_CHECKING:
     from cartopy.mpl.geoaxes import GeoAxes
@@ -38,46 +41,6 @@ if TYPE_CHECKING:
 
 
 rcParams["animation.ffmpeg_path"] = imageio_ffmpeg.get_ffmpeg_exe()
-
-
-def open_parcels_output(
-    path: str | Path,
-    load: bool = True,  # noqa: FBT001,FBT002
-) -> xr.Dataset:
-    """Open a Zarr file containing OceanParcels (https://docs.oceanparcels.org/en/latest/index.html) output.
-
-    Automatically detects if the path is a single zarr file or if it is a directory containing multiple Zarr files from MPI runs,
-    as detailed here: https://docs.oceanparcels.org/en/latest/examples/documentation_MPI.html.
-
-    Args:
-        path (str or Path): Path to the Zarr file or directory containing the Zarr files.
-        load (bool): If True, load the dataset into memory. Defaults to True.
-
-    Returns:
-        ds (xr.Dataset): The dataset containing the OceanParcels output.
-
-    Raises:
-        FileNotFoundError: If the specified path does not exist.
-
-    """
-    if isinstance(path, str):
-        path = Path(path)
-    if not path.exists():
-        msg = f"Path {path} does not exist."
-        raise FileNotFoundError(msg)
-    mpi_files = list(path.glob("proc*"))
-    if len(mpi_files) == 0:
-        ds = xr.open_zarr(path)
-    else:
-        ds = xr.concat(
-            [xr.open_zarr(f) for f in mpi_files],
-            dim="trajectory",
-            compat="no_conflicts",
-            coords="minimal",
-        )
-    if load:
-        ds.load()  # Load the dataset into memory
-    return ds
 
 
 def make_animation(ds: xr.Dataset, save_path: Path | str, trajectory_colors: list | NDArray) -> None:
@@ -96,7 +59,8 @@ def make_animation(ds: xr.Dataset, save_path: Path | str, trajectory_colors: lis
     ax: GeoAxes | Axes
     fig, ax = plt.subplots(figsize=(8, 5), subplot_kw={"projection": ccrs.PlateCarree()})
     fig.tight_layout(pad=2.0)
-    # Need to explicitly cast to GeoAxes for type checking, since plt.subplots doesn't return different types based on subplot_kw
+    # Need to explicitly cast to GeoAxes for type checking,
+    # since plt.subplots doesn't return different types based on subplot_kw
     ax = cast("GeoAxes", ax)
 
     sca_data = np.array([ds["lon"].isel(time=0), ds["lat"].isel(time=0)])
@@ -175,7 +139,7 @@ if __name__ == "__main__":
     years = np.arange(1997, 2020)
     # Ensure the data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    args = parse_args()
+    args = parse_args("Create animations of particle trajectories from Parcels output.")
     for year in tqdm(years, desc="Processing years"):
         file = DATA_DIR / f"fwd_release_timeidx_140W_45-55N_{year}.zarr"
         if not file.exists():

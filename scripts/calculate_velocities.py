@@ -1,10 +1,11 @@
+"""Calculates geostrophic velocities from altimeter data with mean dynamic topography correction and Ekman velocities from OSCAR."""  # noqa: E501
+
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
 #     "xarray[accel,io,parallel]",
 # ]
 # ///
-"""Calculates geostrophic velocities from altimeter data with mean dynamic topography correction and Ekman velocities from OSCAR."""
 
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,7 +31,7 @@ oscar = oscar.swap_dims({"latitude": "lat", "longitude": "lon"}).rename({"lat": 
 # Convert AVISO time to standard calendar
 oscar = oscar.convert_calendar("standard", use_cftime=False)
 # Convert longitude to -180 to 180 range for OSCAR
-oscar["longitude"] = oscar["longitude"] - 360  # noqa: PLR6104; xarray indices are immutable so -= 360 does not work
+oscar["longitude"] = oscar["longitude"] - 360
 
 # Interpolate MDT and OSCAR data to AVISO grid
 mdt = mdt.interp(
@@ -69,7 +70,7 @@ combined_ds = xr.Dataset(
         "longitude": aviso_al.longitude,
     },
     attrs={
-        "title": "Combined dataset of AVISO geostrophic current anomalies with long-term mean dynamic topography geostrophic currents added and OSCAR Ekman currents",
+        "title": "Combined dataset of AVISO geostrophic current anomalies with long-term mean dynamic topography geostrophic currents added and OSCAR Ekman currents",  # noqa: E501
         "institution": _convert_dict_to_string(
             {
                 "aviso": aviso.attrs.get("institution"),
@@ -120,13 +121,13 @@ combined_ds["uek"].attrs = {
     "units": "m/s",
     "long_name": "zonal Ekman current",
     "standard_name ": "eastward_sea_water_velocity_due_to_ekman_drift",
-    "description": "Ekman current from OSCAR calculated as the difference between the total OSCAR u-component and the geostrophic OSCAR u-component",
+    "description": "Ekman current from OSCAR calculated as the difference between the total OSCAR u-component and the geostrophic OSCAR u-component",  # noqa: E501
 }
 combined_ds["vek"].attrs = {
     "units": "m/s",
     "long_name": "meridional Ekman current",
     "standard_name ": "northward_sea_water_velocity_due_to_ekman_drift",
-    "description": "Ekman current from OSCAR calculated as the difference between the total OSCAR v-component and the geostrophic OSCAR v-component",
+    "description": "Ekman current from OSCAR calculated as the difference between the total OSCAR v-component and the geostrophic OSCAR v-component",  # noqa: E501
 }
 combined_ds["u"].attrs = {
     "units": "m/s",

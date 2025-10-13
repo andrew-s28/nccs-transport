@@ -1,9 +1,60 @@
+"""Utilities for running OceanParcels Lagrangian simulations.
+
+Currently holds functions for opening OceanParcels outputs,
+computing the land mask of an ocean model (i.e., where land is located),
+detecting coastal nodes near land,
+and creating an artificial displacement field to prevent stuck particles near land.
+"""
+
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
 
 
-def make_landmask(grid_file: str) -> np.ndarray:
-    """Function that builds a landmask from a grid file.
+def open_parcels_output(
+    path: str | Path,
+    load: bool = True,  # noqa: FBT001, FBT002
+) -> xr.Dataset:
+    """Open a Zarr file containing OceanParcels (https://docs.oceanparcels.org/en/latest/index.html) output.
+
+    Automatically detects if the path is a single zarr file or if it
+    is a directory containing multiple Zarr files from MPI runs,
+    as detailed here: https://docs.oceanparcels.org/en/latest/examples/documentation_MPI.html.
+
+    Args:
+        path (str or Path): Path to the Zarr file or directory containing the Zarr files.
+        load (bool): If True, load the dataset into memory. Defaults to True.
+
+    Returns:
+        ds (xr.Dataset): The dataset containing the OceanParcels output.
+
+    Raises:
+        FileNotFoundError: If the specified path does not exist.
+
+    """
+    if isinstance(path, str):
+        path = Path(path)
+    if not path.exists():
+        msg = f"Path {path} does not exist."
+        raise FileNotFoundError(msg)
+    mpi_files = list(path.glob("proc*"))
+    if len(mpi_files) == 0:
+        ds = xr.open_zarr(path)
+    else:
+        ds = xr.concat(
+            [xr.open_zarr(f) for f in mpi_files],
+            dim="trajectory",
+            compat="no_conflicts",
+            coords="minimal",
+        )
+    if load:
+        ds.load()  # Load the dataset into memory
+    return ds
+
+
+def make_landmask(grid_file: str | Path) -> np.ndarray:
+    """Build a landmask from a grid file.
 
     Args:
         grid_file (str): Path to the grid file.
@@ -17,12 +68,14 @@ def make_landmask(grid_file: str) -> np.ndarray:
         grid_file,
     ).mask_rho_no_rivers.to_numpy()
     landmask = np.invert(landmask.astype(bool)).astype(int)
-    landmask = landmask.astype(int)
-    return landmask
+
+    return landmask.astype(int)
 
 
 def get_coastal_nodes(landmask: np.ndarray, shift: int = 1) -> np.ndarray:
-    """Function that detects the coastal nodes, i.e. the ocean nodes directly next to land. Computes the Laplacian of landmask.
+    """Detect the coastal nodes, i.e., the ocean nodes directly next to land.
+
+    Computes the Laplacian of landmask.
 
     Args:
         landmask (np.ndarray): The land mask built using `make_landmask`, where land cell = 1
@@ -38,13 +91,17 @@ def get_coastal_nodes(landmask: np.ndarray, shift: int = 1) -> np.ndarray:
     mask_lap += np.roll(landmask, -shift, axis=1) + np.roll(landmask, shift, axis=1)
     mask_lap -= 4 * landmask
     coastal = np.ma.masked_array(landmask, mask_lap > 0)
-    coastal = coastal.mask.astype("int")
 
-    return coastal
+    return coastal.mask.astype("int")
 
 
-def get_coastal_nodes_diagonal(landmask: np.ndarray, shift: int = 1) -> np.ma.masked_array:
-    """Function that detects the coastal nodes, i.e. the ocean nodes where one of the 8 nearest nodes is land. Computes the Laplacian of landmask and the Laplacian of the 45 degree rotated landmask.
+def get_coastal_nodes_diagonal(
+    landmask: np.ndarray,
+    shift: int = 1,
+) -> np.ma.masked_array:
+    """Detect the coastal nodes, i.e. the ocean nodes where one of the 8 nearest nodes is land.
+
+    Computes the Laplacian of landmask and the Laplacian of the 45 degree rotated landmask.
 
     Args:
         landmask (np.ndarray): The land mask built using `make_landmask`, where land cell = 1
@@ -58,17 +115,26 @@ def get_coastal_nodes_diagonal(landmask: np.ndarray, shift: int = 1) -> np.ma.ma
     """
     mask_lap = np.roll(landmask, -shift, axis=0) + np.roll(landmask, shift, axis=0)
     mask_lap += np.roll(landmask, -shift, axis=1) + np.roll(landmask, shift, axis=1)
-    mask_lap += np.roll(landmask, (-shift, shift), axis=(0, 1)) + np.roll(landmask, (shift, shift), axis=(0, 1))
-    mask_lap += np.roll(landmask, (-shift, -shift), axis=(0, 1)) + np.roll(landmask, (shift, -shift), axis=(0, 1))
+    mask_lap += np.roll(landmask, (-shift, shift), axis=(0, 1)) + np.roll(
+        landmask,
+        (shift, shift),
+        axis=(0, 1),
+    )
+    mask_lap += np.roll(landmask, (-shift, -shift), axis=(0, 1)) + np.roll(
+        landmask,
+        (shift, -shift),
+        axis=(0, 1),
+    )
     mask_lap -= 8 * landmask
     coastal_diag = np.ma.masked_array(landmask, mask_lap > 0)
-    coastal_diag = coastal_diag.mask.astype("int")
 
-    return coastal_diag
+    return coastal_diag.mask.astype("int")
 
 
 def get_shore_nodes(landmask: np.ndarray, shift: int = 1) -> np.ma.masked_array:
-    """Function that detects the shore nodes, i.e. the land nodes directly next to the ocean. Computes the Laplacian of landmask.
+    """Detect the shore nodes, i.e. the land nodes directly next to the ocean.
+
+    Computes the Laplacian of landmask.
 
     Args:
         landmask (np.ndarray): The land mask built using `make_landmask`, where land cell = 1
@@ -84,13 +150,17 @@ def get_shore_nodes(landmask: np.ndarray, shift: int = 1) -> np.ma.masked_array:
     mask_lap += np.roll(landmask, -shift, axis=1) + np.roll(landmask, shift, axis=1)
     mask_lap -= 4 * landmask
     shore = np.ma.masked_array(landmask, mask_lap < 0)
-    shore = shore.mask.astype("int")
 
-    return shore
+    return shore.mask.astype("int")
 
 
-def get_shore_nodes_diagonal(landmask: np.ndarray, shift: int = 1) -> np.ma.masked_array:
-    """Function that detects the shore nodes, i.e. the land nodes where one of the 8 nearest nodes is ocean. Computes the Laplacian of landmask and the Laplacian of the 45 degree rotated landmask.
+def get_shore_nodes_diagonal(
+    landmask: np.ndarray,
+    shift: int = 1,
+) -> np.ma.masked_array:
+    """Detect the shore nodes, i.e. the land nodes where one of the 8 nearest nodes is ocean.
+
+    Computes the Laplacian of landmask and the Laplacian of the 45 degree rotated landmask.
 
     Args:
         landmask (np.ndarray): The land mask built using `make_landmask`, where land cell = 1
@@ -104,17 +174,27 @@ def get_shore_nodes_diagonal(landmask: np.ndarray, shift: int = 1) -> np.ma.mask
     """
     mask_lap = np.roll(landmask, -shift, axis=0) + np.roll(landmask, shift, axis=0)
     mask_lap += np.roll(landmask, -shift, axis=1) + np.roll(landmask, shift, axis=1)
-    mask_lap += np.roll(landmask, (-shift, shift), axis=(0, 1)) + np.roll(landmask, (shift, shift), axis=(0, 1))
-    mask_lap += np.roll(landmask, (-shift, -shift), axis=(0, 1)) + np.roll(landmask, (shift, -shift), axis=(0, 1))
+    mask_lap += np.roll(landmask, (-shift, shift), axis=(0, 1)) + np.roll(
+        landmask,
+        (shift, shift),
+        axis=(0, 1),
+    )
+    mask_lap += np.roll(landmask, (-shift, -shift), axis=(0, 1)) + np.roll(
+        landmask,
+        (shift, -shift),
+        axis=(0, 1),
+    )
     mask_lap -= 8 * landmask
     shore = np.ma.masked_array(landmask, mask_lap < 0)
-    shore = shore.mask.astype("int")
 
-    return shore
+    return shore.mask.astype("int")
 
 
-def create_displacement_field(landmask: np.ndarray, shift: int = 1) -> tuple[np.ndarray, np.ndarray]:
-    """Function that creates a displacement field 1 m/s away from the shore.
+def create_displacement_field(
+    landmask: np.ndarray,
+    shift: int = 1,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Create a displacement field 1 m/s away from the shore.
 
     Args:
         landmask (np.ndarray): The land mask built using `make_landmask`, where land cell = 1
@@ -122,7 +202,8 @@ def create_displacement_field(landmask: np.ndarray, shift: int = 1) -> tuple[np.
         shift (int): The shift to apply to the landmask. Default is 1.
 
     Returns:
-        (vx, vy) ((np.ndarray, np.ndarray)): a tuple of 2D arrays, one for each component of the displacement velocity field (v_x, v_y).
+        (vx, vy) ((np.ndarray, np.ndarray)): a tuple of 2D arrays,
+            one for each component of the displacement velocity field (v_x, v_y).
 
     """
     shore = get_coastal_nodes(landmask, shift)
@@ -138,13 +219,29 @@ def create_displacement_field(landmask: np.ndarray, shift: int = 1) -> tuple[np.
 
     ly_c = np.roll(landmask, -shift, axis=0) - np.roll(landmask, shift, axis=0)
     # Include y-component of diagonal neighbors
-    ly_c += np.roll(landmask, (-shift, -shift), axis=(0, 1)) + np.roll(landmask, (-shift, shift), axis=(0, 1))
-    ly_c += -np.roll(landmask, (shift, -shift), axis=(0, 1)) - np.roll(landmask, (shift, shift), axis=(0, 1))
+    ly_c += np.roll(landmask, (-shift, -shift), axis=(0, 1)) + np.roll(
+        landmask,
+        (-shift, shift),
+        axis=(0, 1),
+    )
+    ly_c += -np.roll(landmask, (shift, -shift), axis=(0, 1)) - np.roll(
+        landmask,
+        (shift, shift),
+        axis=(0, 1),
+    )
 
     lx_c = np.roll(landmask, -shift, axis=1) - np.roll(landmask, shift, axis=1)
     # Include x-component of diagonal neighbors
-    lx_c += np.roll(landmask, (-shift, -shift), axis=(1, 0)) + np.roll(landmask, (-shift, shift), axis=(1, 0))
-    lx_c += -np.roll(landmask, (shift, -shift), axis=(1, 0)) - np.roll(landmask, (shift, shift), axis=(1, 0))
+    lx_c += np.roll(landmask, (-shift, -shift), axis=(1, 0)) + np.roll(
+        landmask,
+        (-shift, shift),
+        axis=(1, 0),
+    )
+    lx_c += -np.roll(landmask, (shift, -shift), axis=(1, 0)) - np.roll(
+        landmask,
+        (shift, shift),
+        axis=(1, 0),
+    )
 
     v_x = -lx * (shore)
     v_y = -ly * (shore)
@@ -161,14 +258,21 @@ def create_displacement_field(landmask: np.ndarray, shift: int = 1) -> tuple[np.
     ny, nx = np.where(magnitude == 0)
     magnitude[ny, nx] = 1
 
+    v_x = v_x.astype(float)
+    v_y = v_y.astype(float)
+
     v_x /= magnitude
     v_y /= magnitude
 
     return v_x, v_y
 
 
-def distance_to_shore(landmask: np.ndarray, dx: float = 1, shift: int = 1) -> np.ndarray:
-    """Function that computes the distance to the shore. It is based in the the `get_coastal_nodes` algorithm.
+def compute_distance_to_shore(
+    landmask: np.ndarray,
+    dx: float = 1,
+    shift: int = 1,
+) -> np.ndarray:
+    """Compute the distance to the shore, based on the `get_coastal_nodes` algorithm.
 
     Args:
         landmask (np.ndarray): The land mask built using `make_landmask`, where land cell = 1
