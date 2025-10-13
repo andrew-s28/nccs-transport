@@ -64,8 +64,8 @@ class ParcelsConfig:
 
     def set_start_end_times(self) -> None:
         """Set the start and end times for the simulation."""
-        self.start_time = datetime(self.year_release, 1, 1, tzinfo=UTC)
-        self.end_time = datetime(self.year_release, 12, 31, tzinfo=UTC)
+        self.start_time = datetime(self.year_release, 12, 31, tzinfo=UTC)
+        self.end_time = datetime(self.year_release, 1, 1, tzinfo=UTC)
         if self.start_time > self.end_time:
             self.advection_timestep = -abs(self.advection_timestep)
         else:
