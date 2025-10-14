@@ -19,17 +19,20 @@ from overwrite_cli import parse_args
 local_tz = datetime.now().astimezone().tzinfo
 
 if __name__ == "__main__":
-    years = range(1994, 1999)
+    years = range(1999, 2002)
     config = ParcelsAltimeterConfig(
-        d_lon_release=0.025,
-        d_lat_release=0.025,
-        n_particles=64,
+        min_lon_release=-127,
+        max_lon_release=-125,
+        d_lon_release=0.05,
+        min_lat_release=44,
+        max_lat_release=45,
+        d_lat_release=0.05,
         velocity_file=Path("/mnt/d/nccs-transport/combined_velocity_dataset.nc"),
-        input_dir=Path("/mnt/d/plankton_particle_tracks"),
-        output_dir=Path("/mnt/d/plankton_particle_tracks/test"),
-        runtime=timedelta(days=210),
-        year_release=1997,
-        max_age=timedelta(days=180),
+        input_dir=Path("/mnt/d/nccs-transport/tracks/altimeter/"),
+        output_dir=Path("/mnt/d/nccs-transport/tracks/altimeter/"),
+        runtime=timedelta(days=365 * 5),
+        year_release=years[0],
+        max_age=timedelta(days=365 * 3),
     )
     args = parse_args("Run OceanParcels plankton tracking simulations.")
     for year in years:
