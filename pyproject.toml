@@ -23,6 +23,16 @@ dependencies = [
 authors = [{ name = "Andrew Scherer", email = "andrew@sourcedepth.com" }]
 license = "MIT"
 
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "scripts" }
+
+[tool.setuptools.packages.find]
+where = ["code"]
+
 [tool.ruff]
 line-length = 120
 
