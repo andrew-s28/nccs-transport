@@ -21,7 +21,7 @@ from pathlib import Path
 from mpi4py import MPI
 from parcels import FileWarning
 
-from scripts.forward_altimeter_tracking import ParcelsConfig, execute_forward_release, write_metadata
+from forward_altimeter_tracking import ParcelsConfig, execute_forward_release, write_metadata
 
 ##############################################
 # User-defined parameters for the simulation #

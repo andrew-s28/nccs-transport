@@ -15,12 +15,12 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.forward_altimeter_tracking import ParcelsConfig as ParcelsAltimeterConfig
-from scripts.forward_altimeter_tracking import execute_forward_release, write_metadata
-from scripts.overwrite_cli import parse_args
+from forward_altimeter_tracking import ParcelsConfig as ParcelsAltimeterConfig
+from forward_altimeter_tracking import execute_forward_release, write_metadata
+from overwrite_cli import parse_args
 
 if __name__ == "__main__":
-    years = np.arange(1997, 2020)
+    years = np.arange(1997, 2020, dtype=int)
     config = ParcelsAltimeterConfig(
         lon_release=-140,
         min_lat_release=40,

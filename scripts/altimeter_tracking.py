@@ -34,7 +34,6 @@ class ParcelsConfig:
     max_lat_release: float  # Maximum latitude for particle release
     d_lat_release: float  # Latitude between release points
     velocity_file: Path
-    input_dir: Path  # for additional input files if needed
     output_dir: Path
     runtime: timedelta
     year_release: int
@@ -52,7 +51,6 @@ class ParcelsConfig:
         """Initialize the ParcelsConfig dataclass."""
         self.set_start_end_times()
         self.set_output_file()
-        self.set_station_file()
         self.set_output_file()
 
     def update_year_release(self, year_release: int) -> None:
@@ -60,10 +58,6 @@ class ParcelsConfig:
         self.year_release = year_release
         self.set_start_end_times()
         self.set_output_file()
-
-    def set_station_file(self) -> None:
-        """Set the station files based on the year of release."""
-        self.station_file = self.input_dir / "StationPositionsMidshelf.csv"
 
     def set_start_end_times(self) -> None:
         """Set the start and end times for the simulation."""

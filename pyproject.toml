@@ -47,4 +47,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["scripts"]
+known-first-party = [
+    "scripts",
+    "utils",
+    "forward_altimeter_tracking",
+    "overwrite_cli",
+    "altimeter_tracking",
+    "model_tracking",
+]

@@ -7,9 +7,9 @@ import numpy as np
 import xarray as xr
 from tqdm import tqdm
 
-from scripts.altimeter_tracking import ParcelsConfig
-from scripts.overwrite_cli import parse_args
-from scripts.utils import open_parcels_output
+from altimeter_tracking import ParcelsConfig
+from overwrite_cli import parse_args
+from utils import open_parcels_output
 
 
 def convert_to_time_index(ds: xr.Dataset, save_path: Path | None = None) -> xr.Dataset:
@@ -39,22 +39,26 @@ def convert_to_time_index(ds: xr.Dataset, save_path: Path | None = None) -> xr.D
 
 if __name__ == "__main__":
     DATA_DIR = Path("D:/nccs-transport/forward_releases/")
-    years = np.arange(1997, 2020)
+    years = np.arange(1997, 2020, dtype=int)
     config = ParcelsConfig(
-        lon_release=-140,
+        min_lon_release=-127,
+        max_lon_release=-125,
+        d_lon_release=0.1,
         min_lat_release=45,
         max_lat_release=55,
-        n_particles=50,
+        d_lat_release=0.1,
         runtime=timedelta(days=366 * 3),
         velocity_file=Path("D:/nccs-transport/combined_velocity_dataset.nc"),
-        output_path=Path("D:/nccs-transport/forward_releases"),
+        output_dir=Path("D:/nccs-transport/forward_releases"),
+        year_release=years[0],
     )  # Just using ParcelsConfig to find output paths
     args = parse_args("Converting Parcels output to time-indexed format.")
     for year in tqdm(years, desc="Processing years"):
-        config.set_start_end_times(year)
-        config.set_output_file(year)
+        config.update_year_release(year)
+        config.set_start_end_times()
+        config.set_output_file()
         output_file_name = config.output_file.name.replace("fwd_release", "fwd_release_timeidx")
-        save_path = config.output_path / output_file_name
+        save_path = config.output_dir / output_file_name
         if save_path.exists():
             if args.prompt:
                 response = input(f"Time-indexed output for {year} already exists. Overwrite? (y/n): ")

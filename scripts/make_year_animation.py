@@ -31,8 +31,8 @@ from matplotlib.collections import PathCollection
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from scripts.overwrite_cli import parse_args
-from scripts.utils import open_parcels_output
+from overwrite_cli import parse_args
+from utils import open_parcels_output
 
 if TYPE_CHECKING:
     from cartopy.mpl.geoaxes import GeoAxes
