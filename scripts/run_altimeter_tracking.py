@@ -19,14 +19,14 @@ from overwrite_cli import parse_args
 local_tz = datetime.now().astimezone().tzinfo
 
 if __name__ == "__main__":
-    years = range(1999, 2002)
+    years = range(1999, 2018)
     config = ParcelsAltimeterConfig(
         min_lon_release=-127,
         max_lon_release=-125,
-        d_lon_release=0.05,
+        d_lon_release=0.1,
         min_lat_release=44.6,
-        max_lat_release=44.65,
-        d_lat_release=0.05,
+        max_lat_release=44.6,
+        d_lat_release=0.1,
         velocity_file=Path("/mnt/d/nccs-transport/combined_velocity_dataset.nc"),
         output_dir=Path("/mnt/d/nccs-transport/tracks/altimeter/"),
         runtime=timedelta(days=365 * 5),

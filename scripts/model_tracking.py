@@ -31,6 +31,37 @@ from utils import (
 
 print(f"Parcels version: {parcels.__version__}")
 
+# Define variables and dimensions for CROCO model for surface only and complete fields
+VARS_SURFACE = {
+    "U": "u",
+    "V": "v",
+    "temp": "temp",
+    "salt": "salt",
+}
+DIMENSIONS_SURFACE = {
+    "U": {"lon": "lon_rho", "lat": "lat_rho", "time": "time"},
+    "V": {"lon": "lon_rho", "lat": "lat_rho", "time": "time"},
+    "temp": {"lon": "lon_rho", "lat": "lat_rho", "time": "time"},
+    "salt": {"lon": "lon_rho", "lat": "lat_rho", "time": "time"},
+}
+# Merge dicts into new objects
+VARS_COMPLETE = VARS_SURFACE | {
+    "W": "w",
+    "H": "h",
+    "Zeta": "zeta",
+    "Cs_w": "Cs_w",
+}
+DIMENSIONS_COMPLETE = DIMENSIONS_SURFACE | {
+    "U": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
+    "V": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
+    "W": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
+    "H": {"lon": "lon_rho", "lat": "lat_rho"},
+    "temp": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_rho", "time": "time"},
+    "salt": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_rho", "time": "time"},
+    "Zeta": {"lon": "lon_rho", "lat": "lat_rho", "time": "time"},
+    "Cs_w": {"depth": "s_w"},
+}
+
 
 @dataclass
 class ParcelsConfig:
@@ -77,12 +108,15 @@ class ParcelsConfig:
         minutes=-10,
     )  # Timestep of the advection simulation
     max_age: timedelta = timedelta(days=365)  # Maximum age of particles before deletion
+    surface_only: bool = False  # Whether to release particles only at the surface
 
     def __post_init__(self) -> None:
         """Initialize the ParcelsConfig dataclass."""
         self.set_start_end_times()
         self.set_output_file()
         self.set_model_files()
+        if self.surface_only:
+            self.depth_release = 0
 
     def update_year_release(self, year_release: int) -> None:
         """Update the year of release and reconfigure the model files, start and end times, and output file."""
@@ -113,13 +147,14 @@ class ParcelsConfig:
 
     def set_output_file(self) -> None:
         """Set the output file path based on the year."""
+        depth_release_str = "surface_only" if self.surface_only else f"{abs(self.depth_release)}m"
         if self.start_time > self.end_time:
             self.output_file = (
-                self.output_dir / f"bwd_release_plankton_stations_{self.year_release!s}_{abs(self.depth_release)}m.zarr"
+                self.output_dir / f"bwd_release_plankton_stations_{self.year_release!s}_{depth_release_str}.zarr"
             )
         else:
             self.output_file = (
-                self.output_dir / f"fwd_release_plankton_stations_{self.year_release!s}_{abs(self.depth_release)}m.zarr"
+                self.output_dir / f"fwd_release_plankton_stations_{self.year_release!s}_{depth_release_str}.zarr"
             )
 
 
@@ -263,26 +298,9 @@ def setup_fieldset(config: ParcelsConfig) -> parcels.FieldSet:
         config.model_dir,
     )
 
-    variables = {
-        "U": "u",
-        "V": "v",
-        "W": "w",
-        "H": "h",
-        "temp": "temp",
-        "salt": "salt",
-        "Zeta": "zeta",
-        "Cs_w": "Cs_w",
-    }
-    dimensions = {
-        "U": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
-        "V": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
-        "W": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
-        "H": {"lon": "lon_rho", "lat": "lat_rho"},
-        "temp": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
-        "salt": {"lon": "lon_rho", "lat": "lat_rho", "depth": "s_w", "time": "time"},
-        "Zeta": {"lon": "lon_rho", "lat": "lat_rho", "time": "time"},
-        "Cs_w": {"depth": "s_w"},
-    }
+    variables = VARS_SURFACE if config.surface_only else VARS_COMPLETE
+    dimensions = DIMENSIONS_SURFACE if config.surface_only else DIMENSIONS_COMPLETE
+
     chunksize = {  # noqa: F841 - not used currently, kept for reference
         "U": {
             "time": ("time", 1),
@@ -329,7 +347,7 @@ def setup_fieldset(config: ParcelsConfig) -> parcels.FieldSet:
             config.model_files,
             variables,
             dimensions,
-            hc=200.0,
+            hc=200.0,  # hard coded but from model grid
             deferred_load=True,
             chunksize=None,
         )
@@ -456,6 +474,76 @@ def setup_kernels() -> list[Callable[..., None]]:  # noqa: C901
     return kernels
 
 
+def setup_surface_kernels() -> list[Callable[..., None]]:  # noqa: C901
+    """Create the kernels for surface only particle tracking.
+
+    Returns:
+        kernels (list[Callable[..., None]]): The list of kernel functions.
+
+    """
+
+    def set_displacement(particle, fieldset, time):  # noqa: ARG001, ANN001, ANN202
+        particle.distance_to_shore = fieldset.distance_to_shore[
+            0,
+            0,
+            particle.lat,
+            particle.lon,
+        ]
+        particle.dlon = 0
+        particle.dlat = 0
+        particle.du = 0
+        particle.dv = 0
+        # If particle is close to land, manually add offshore displacement
+        if particle.distance_to_shore > fieldset.distance_to_shore_limit:
+            particle.du = fieldset.disp_u[0, 0, particle.lat, particle.lon]
+            particle.dv = fieldset.disp_v[0, 0, particle.lat, particle.lon]
+            particle.dlon = particle.du * particle.dt / 1e3
+            particle.dlat = particle.dv * particle.dt / 1e3
+            if (particle.dlon > 0) and (particle.dlat > 0):
+                particle_dlon -= particle.dlon  # pyright: ignore[reportUnboundVariable]  # noqa: F821, F841
+                particle_dlat -= particle.dlat  # pyright: ignore[reportUnboundVariable]  # noqa: F821, F841
+
+    def particle_age(particle, fieldset, time):  # noqa: ARG001, ANN001, ANN202
+        particle.age += particle.dt
+
+    def delete_old_particle(particle, fieldset, time):  # noqa: ARG001, ANN001, ANN202
+        # Handle forward releases
+        if particle.age > fieldset.max_age:
+            particle.delete()
+            particle.delete_by_age = 1
+        # Handle backward releases
+        if particle.age < -fieldset.max_age:
+            particle.delete()
+            particle.delete_by_age = 1
+        if particle.age >= -fieldset.max_age and particle.age <= fieldset.max_age:
+            particle.delete_by_age = 0
+
+    def handle_error_particle(particle, fieldset, time):  # noqa: ARG001, ANN001, ANN202
+        particle.landmask = fieldset.landmask[0, 0, particle.lat, particle.lon]
+        # If the manual dlon and dlat are negative, the particle is being pushed more onto land, so just delete it
+        if (particle.dlon < 0) and (particle.dlat < 0):
+            particle.delete()
+            particle.delete_by_distance_to_shore = 1
+        else:
+            particle.delete_by_distance_to_shore = 0
+        if particle.state == StatusCode.ErrorOutOfBounds:  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
+            particle.delete()
+            particle.delete_by_out_of_bound = 1
+        else:
+            particle.delete_by_out_of_bound = 0
+
+    # Can't sample fields in surface only mode since Parcels can't interpolate correctly without vertical coordinates
+    kernels = [
+        particle_age,
+        set_displacement,
+        parcels.AdvectionRK4,
+        handle_error_particle,
+        delete_old_particle,
+    ]
+
+    return kernels
+
+
 def execute_backward_release(config: ParcelsConfig) -> None:
     """Execute the backward release simulation using Parcels.
 
@@ -463,25 +551,8 @@ def execute_backward_release(config: ParcelsConfig) -> None:
         config (ParcelsConfig): Configuration object containing simulation parameters.
 
     """
-    # Setup the fieldset
-    fieldset = setup_fieldset(config)
 
-    # Setup the kernels
-    kernels = setup_kernels()
-
-    # Get the release positions
-    release_lons, release_lats, release_depths, release_times = get_release_positions(
-        config.start_time,
-        config.end_time,
-        config.min_lon_release,
-        config.max_lon_release,
-        config.d_lon_release,
-        config.min_lat_release,
-        config.max_lat_release,
-        config.d_lat_release,
-        config.depth_release,
-    )
-
+    # Setup the particle class
     class Particle(parcels.JITParticle):
         age = parcels.Variable(
             "age",
@@ -503,6 +574,23 @@ def execute_backward_release(config: ParcelsConfig) -> None:
         )
         delete_by_out_of_bound = parcels.Variable("delete_by_out_of_bound", initial=0)
 
+    # Setup the fieldset
+    fieldset = setup_fieldset(config)
+
+    # Setup the kernels
+
+    # With depth for full 3D release
+    release_lons, release_lats, release_depths, release_times = get_release_positions(
+        config.start_time,
+        config.end_time,
+        config.min_lon_release,
+        config.max_lon_release,
+        config.d_lon_release,
+        config.min_lat_release,
+        config.max_lat_release,
+        config.d_lat_release,
+        config.depth_release,
+    )
     pset = parcels.ParticleSet(
         fieldset=fieldset,
         pclass=Particle,
@@ -511,6 +599,8 @@ def execute_backward_release(config: ParcelsConfig) -> None:
         depth=release_depths,
         time=release_times,
     )
+
+    kernels = setup_kernels() if not config.surface_only else setup_surface_kernels()
 
     output_particle_file = pset.ParticleFile(
         name=config.output_file,

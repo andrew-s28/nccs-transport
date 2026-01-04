@@ -32,9 +32,12 @@ if __name__ == "__main__":
         runtime=timedelta(days=365 * 5),
         year_release=years[0],
         max_age=timedelta(days=365 * 3),
-        depth_release=150,
+        depth_release=0,
     )
     args = parse_args("Run OceanParcels plankton tracking simulations.")
+    if args.surface_only:
+        config.surface_only = True
+
     for year in years:
         config.update_year_release(year)
         if config.output_file.exists():

@@ -31,7 +31,10 @@ build-backend = "setuptools.build_meta"
 package-dir = { "" = "scripts" }
 
 [tool.setuptools.packages.find]
-where = ["code"]
+where = ["scripts"]
+
+[tool.ty.environment]
+root = ["./scripts"]
 
 [tool.ruff]
 line-length = 120
