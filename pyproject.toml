@@ -49,6 +49,15 @@ ignore = [
     "CPY001", # missing copyright notice
 ]
 
+[tool.ruff.lint.extend-per-file-ignores]
+"notebooks/*.py" = [
+    "T201",   # print statements in code
+    "B018",   # useless-expression; useful in notebooks
+    "ERA001", # commented-out-code; can't use with jupytext
+    "D100",   # undocumented-public-module
+    "INP001", # implicit-namespace-package
+]
+
 [tool.ruff.lint.pylint]
 max-args = 10
 
