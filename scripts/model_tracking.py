@@ -422,8 +422,8 @@ def setup_kernels() -> list[Callable[..., None]]:  # noqa: C901
             particle.dlon = particle.du * particle.dt / 1e3
             particle.dlat = particle.dv * particle.dt / 1e3
             if (particle.dlon > 0) and (particle.dlat > 0):
-                particle_dlon -= particle.dlon  # pyright: ignore[reportUnboundVariable]  # noqa: F821, F841
-                particle_dlat -= particle.dlat  # pyright: ignore[reportUnboundVariable]  # noqa: F821, F841
+                particle_dlon -= particle.dlon  # noqa: F821, F841  # ty:ignore[unresolved-reference]
+                particle_dlat -= particle.dlat  # noqa: F821, F841  # ty:ignore[unresolved-reference]
 
     def particle_age(particle, fieldset, time):  # noqa: ARG001, ANN001, ANN202
         particle.age += particle.dt
@@ -448,14 +448,14 @@ def setup_kernels() -> list[Callable[..., None]]:  # noqa: C901
             particle.delete_by_distance_to_shore = 1
         else:
             particle.delete_by_distance_to_shore = 0
-        if particle.state == StatusCode.ErrorOutOfBounds:  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
+        if particle.state == StatusCode.ErrorOutOfBounds:  # noqa: F821  # ty:ignore[unresolved-reference]
             particle.delete()
             particle.delete_by_out_of_bound = 1
         else:
             particle.delete_by_out_of_bound = 0
-        if particle.state == StatusCode.ErrorThroughSurface:  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
+        if particle.state == StatusCode.ErrorThroughSurface:  # noqa: F821  # ty:ignore[unresolved-reference]
             particle_ddepth = 0  # noqa: F841
-            particle.state = StatusCode.Success  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
+            particle.state = StatusCode.Success  # noqa: F821  # ty:ignore[unresolved-reference]
 
     def sample_fields(particle, fieldset, time):  # noqa: ANN001, ANN202
         particle.temp = fieldset.temp[time, particle.depth, particle.lat, particle.lon]
@@ -500,8 +500,8 @@ def setup_surface_kernels() -> list[Callable[..., None]]:  # noqa: C901
             particle.dlon = particle.du * particle.dt / 1e3
             particle.dlat = particle.dv * particle.dt / 1e3
             if (particle.dlon > 0) and (particle.dlat > 0):
-                particle_dlon -= particle.dlon  # pyright: ignore[reportUnboundVariable]  # noqa: F821, F841
-                particle_dlat -= particle.dlat  # pyright: ignore[reportUnboundVariable]  # noqa: F821, F841
+                particle_dlon -= particle.dlon  # ty:ignore[unresolved-reference] # noqa: F821, F841
+                particle_dlat -= particle.dlat  # ty:ignore[unresolved-reference] # noqa: F821, F841
 
     def particle_age(particle, fieldset, time):  # noqa: ARG001, ANN001, ANN202
         particle.age += particle.dt
@@ -526,7 +526,7 @@ def setup_surface_kernels() -> list[Callable[..., None]]:  # noqa: C901
             particle.delete_by_distance_to_shore = 1
         else:
             particle.delete_by_distance_to_shore = 0
-        if particle.state == StatusCode.ErrorOutOfBounds:  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
+        if particle.state == StatusCode.ErrorOutOfBounds:  # ty:ignore[unresolved-reference]  # noqa: F821
             particle.delete()
             particle.delete_by_out_of_bound = 1
         else:
