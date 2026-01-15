@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 model_tracks_directory = Path("D://nccs-transport/tracks/model/")
 
 # Surface runs are bad still, don't use. Will replace with 1-day surface runs eventually.
-surface_model_trajectory_zarr_list = list(model_tracks_directory.glob("*_surface_only*.zarr"))
+surface_model_trajectory_zarr_list = list(model_tracks_directory.joinpath("test/surface").glob("*_surface_only*.zarr"))
 surface_model_trajectory_zarr_list.sort()
 
 depth_model_trajectory_zarr_list = list(model_tracks_directory.glob("*150m*.zarr"))
