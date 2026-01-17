@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 # %%
 model_tracks_directory = Path("D://nccs-transport/tracks/model/")
 
-# Surface runs are bad still, don't use. Will replace with 1-day surface runs eventually.
 surface_model_trajectory_zarr_list = list(model_tracks_directory.joinpath("test/surface").glob("*_surface_only*.zarr"))
 surface_model_trajectory_zarr_list.sort()
 
@@ -143,6 +142,73 @@ lat_min, lat_max = 30, 50
 
 for month in range(1, 13):
     ds = select_month(model_depth_traj, month).isel(obs=365)
+    histogram, lat_bin_centers, _, lon_bin_centers, _ = calculate_histogram(
+        ds,
+        lat_min,
+        lat_max,
+        0.5,
+        lon_min,
+        lon_max,
+        0.5,
+    )
+
+    row = (month - 1) // 4
+    col = (month - 1) % 4
+    # Need to explicitly cast to GeoAxes for type checking,
+    # since plt.subplots doesn't return different types based on subplot_kw
+    ax = cast("GeoAxes", axs[row, col])
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+
+    pcm = ax.pcolormesh(
+        lon_bin_centers,
+        lat_bin_centers,
+        histogram / np.nansum(histogram),
+        vmin=0,
+        vmax=0.005,
+        cmap="viridis",
+        shading="auto",
+        rasterized=True,
+        transform=ccrs.PlateCarree(),
+    )
+    fig.colorbar(pcm, ax=ax, orientation="vertical")
+
+    ax.set_title(str(calendar.month_name[month]))
+    ax.set_xticks(np.arange(lon_min, lon_max + 1, 10), crs=ccrs.PlateCarree())
+    ax.set_yticks(np.arange(lat_min, lat_max + 1, 5), crs=ccrs.PlateCarree())
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    if row == nrows - 1:
+        ax.set_xlabel("Longitude")
+        lon_formatter = LongitudeFormatter()
+        ax.xaxis.set_major_formatter(lon_formatter)
+        ax.set_xticklabels(np.arange(lon_min, lon_max + 1, 10))
+    if col == 0:
+        ax.set_ylabel("Latitude")
+        lat_formatter = LatitudeFormatter()
+        ax.yaxis.set_major_formatter(lat_formatter)
+        ax.set_yticklabels(np.arange(lat_min, lat_max + 1, 5))
+
+    ax.coastlines()
+    ax.add_feature(cfeature.BORDERS, linestyle="-", linewidth=1.5)
+    ax.add_feature(cfeature.STATES, linestyle=":")
+
+plt.suptitle(
+    "Model mean particle density after 365 days by release month - only surviving particles",
+    fontsize=16,
+    y=0.93,
+)
+
+# %%
+nrows, ncols = 3, 4
+fig, axs = plt.subplots(nrows, ncols, figsize=(20, 12), subplot_kw={"projection": ccrs.PlateCarree()})
+plt.subplots_adjust(wspace=0.1, hspace=0.2)
+
+# For plot axis limits
+lon_min, lon_max = -140, -120
+lat_min, lat_max = 30, 50
+
+for month in range(1, 13):
+    ds = select_month(model_surface_traj, month).isel(obs=365)
     histogram, lat_bin_centers, _, lon_bin_centers, _ = calculate_histogram(
         ds,
         lat_min,
